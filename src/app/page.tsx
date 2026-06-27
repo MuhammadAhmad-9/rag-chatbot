@@ -1,9 +1,7 @@
-// app/chat/page.tsx
 "use client";
 
 import { useRef, useEffect, useState } from "react";
 
-// Define message structure aligning with your RAG backend pipeline format
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -31,17 +29,15 @@ export default function ChatPage() {
     if (!textInput.trim() || isLoading) return;
 
     const userMessageText = textInput.trim();
-    setTextInput(""); // Clear textarea instantly
+    setTextInput("");
     setStatus("submitted");
 
-    // 1. Construct user message object
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content: userMessageText,
     };
 
-    // 2. Construct placeholder message for the assistant stream
     const assistantMessageId = crypto.randomUUID();
     const initialAssistantMessage: Message = {
       id: assistantMessageId,
@@ -49,14 +45,11 @@ export default function ChatPage() {
       content: "",
     };
 
-    // Keep track of history context snapshot BEFORE appending new state updates asynchronously
     const currentHistoryContext = [...messages];
 
-    // Append both local user message and empty assistant bubble instantly to the UI
     setMessages((prev) => [...prev, userMessage, initialAssistantMessage]);
 
     try {
-      // 3. Fire POST request passing both the prompt AND current history array
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -64,7 +57,7 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           message: userMessageText,
-          history: currentHistoryContext, // Sends previous discussion blocks to retain RAG context memory
+          history: currentHistoryContext,
         }),
       });
 
@@ -72,22 +65,18 @@ export default function ChatPage() {
         throw new Error("Failed to initialize stream from server routing pipeline.");
       }
 
-      // 4. Intitialize Web Streams Reader API
       setStatus("streaming");
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let accumulatedContent = "";
 
-      // 5. Stream processing engine loop
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
-        // Decode incoming buffer chunk into UTF-8 text string
         const chunk = decoder.decode(value, { stream: true });
         accumulatedContent += chunk;
 
-        // Target the temporary assistant message by its unique ID to inject content dynamically
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
@@ -98,7 +87,6 @@ export default function ChatPage() {
       }
     } catch (error) {
       console.error("Streaming process aborted:", error);
-      // Inline visual fallback warning notification directly inside your chat UI
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessageId
@@ -113,12 +101,10 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen bg-neutral-50 text-neutral-900">
-      {/* Header section */}
       <header className="bg-white border-b border-neutral-200 px-6 py-4 shadow-sm flex items-center justify-center shrink-0">
         <h1 className="text-xl font-semibold text-neutral-800 tracking-tight">RAG Pipeline</h1>
       </header>
 
-      {/* Message stream area */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-3xl mx-auto space-y-6">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-neutral-400">
@@ -126,7 +112,6 @@ export default function ChatPage() {
           </div>
         ) : (
           messages.map((msg) => {
-            // Keep the assistant placeholder completely hidden from layout tree until the first byte arrives
             if (msg.role === "assistant" && msg.content === "" && status === "submitted") {
               return null;
             }
@@ -149,7 +134,6 @@ export default function ChatPage() {
           })
         )}
 
-        {/* Loading Bounce dots indicator element active during initial server fetch state */}
         {status === "submitted" && (
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-2xl px-5 py-3.5 shadow-sm bg-white border border-neutral-200 text-neutral-800 rounded-bl-none flex items-center space-x-1.5">
@@ -162,7 +146,6 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </main>
 
-      {/* Input container footer wrapper */}
       <footer className="bg-white border-t border-neutral-200 p-4 shrink-0">
         <div className="max-w-3xl mx-auto">
           <form onSubmit={handleSendMessage} className="flex space-x-3 items-end">
@@ -175,7 +158,6 @@ export default function ChatPage() {
               onChange={(e) => setTextInput(e.target.value)}
               disabled={isLoading}
               onKeyDown={(e) => {
-                // Submit execution layer hooks upon Enter interaction without holding shift key modifiers
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSendMessage();
