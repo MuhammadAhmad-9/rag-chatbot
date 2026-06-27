@@ -7,12 +7,10 @@ export const retreiveRelevantContext = async (queryEmbedding: number[], topK: nu
         vector: queryEmbedding,
         includeMetadata: true
     })
-    console.log(topKContext)
     const contextString = topKContext?.matches?.map((match: any) => {
         const text = match.metadata?.text
         return `${text}`
     }).join('\n\n')
 
-    console.log(contextString)
     return contextString
 }

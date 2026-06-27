@@ -5,7 +5,6 @@ import * as fs from 'fs';
 import { embedMany } from 'ai';
 import { google } from '@ai-sdk/google';
 
-// Helper function to build a cleaner text representation for embedding a single JSON object
 function singleObjectToText(item: any): string {
     let text = '';
     for (const key in item) {
@@ -21,7 +20,6 @@ function singleObjectToText(item: any): string {
     return text.trim();
 }
 
-// Helper to sanitize JSON fields to match Pinecone metadata constraints (flat key-values, no nested objects)
 function cleanMetadata(item: any): Record<string, any> {
     const meta: Record<string, any> = {};
     for (const key in item) {
@@ -30,9 +28,9 @@ function cleanMetadata(item: any): Record<string, any> {
             if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
                 meta[key] = val;
             } else if (Array.isArray(val) && val.every(i => typeof i === 'string')) {
-                meta[key] = val; // Pinecone natively supports string arrays
+                meta[key] = val; 
             } else if (typeof val === 'object') {
-                meta[key] = JSON.stringify(val); // Safely flatten nested objects as strings
+                meta[key] = JSON.stringify(val); 
             }
         }
     }
@@ -41,7 +39,6 @@ function cleanMetadata(item: any): Record<string, any> {
 
 export async function embedAndSave() {
     try {
-        // 1. Initialize Pinecone connection
         const indexInstance = await initPineconeIndex();
         await indexInstance.deleteAll();
         if (!indexInstance) {
@@ -50,7 +47,6 @@ export async function embedAndSave() {
 
         const dir = path.join(process.cwd(), '/src/agents/documents');
         if (!fs.existsSync(dir)) {
-            console.error(`Directory not found: ${dir}`);
             return;
         }
 
@@ -60,10 +56,8 @@ export async function embedAndSave() {
             const fileData = fs.readFileSync(path.join(dir, file), 'utf-8');
             let vectors: any[] = [];
 
-            // --- JSON PROCESSING ---
             if (file.endsWith('.json')) {
                 const result = JSON.parse(fileData);
-                // Dynamically look for common array fields if it's a wrapper object
                 const itemsArray = Array.isArray(result) ? result : (result.products || Object.values(result)[0]);
 
                 if (!Array.isArray(itemsArray)) {
@@ -73,11 +67,9 @@ export async function embedAndSave() {
 
                 console.log(`Processing JSON file "${file}" with ${itemsArray.length} items.`);
 
-                // Convert each object to a text string format for the embedding API
                 const textsToEmbed = itemsArray.map(item => singleObjectToText(item));
                 if (textsToEmbed.length === 0) continue;
 
-                // Send items to the AI SDK Google Embedding endpoint
                 const response = await embedMany({
                     model: google.textEmbeddingModel('gemini-embedding-2'),
                     values: textsToEmbed,
@@ -90,7 +82,6 @@ export async function embedAndSave() {
                     }
                 });
 
-                // Map results into valid Pinecone vector configurations
                 vectors = response.embeddings.map((embedding, index) => {
                     const originalItem = itemsArray[index];
 
@@ -112,7 +103,6 @@ export async function embedAndSave() {
                     };
                 });
 
-                // --- TEXT FILE PROCESSING ---
             } else if (file.endsWith('.txt')) {
                 const fileChunks = chunking(fileData, 1000, 200);
                 if (fileChunks.length === 0) continue;
@@ -144,7 +134,6 @@ export async function embedAndSave() {
                 continue;
             }
 
-            // --- BATCH UPSERT TO PINECONE ---
             if (vectors.length === 0) {
                 console.warn(`⚠️ Mapped vectors array is empty for ${file}. Skipping.`);
                 continue;
@@ -165,7 +154,6 @@ export async function embedAndSave() {
     }
 }
 
-// Custom character-level sliding-window fallback function for text chunks
 function chunking(text: string, size: number, overlap: number): string[] {
     const chunks: string[] = [];
     const separators = ["\n\n", "\n", ". ", " ", ""];
@@ -240,5 +228,4 @@ function chunking(text: string, size: number, overlap: number): string[] {
     return chunks;
 }
 
-// Execute the process
 embedAndSave();
